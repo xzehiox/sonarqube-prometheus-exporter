@@ -31,7 +31,7 @@
 ## Features
 * Configure which metrics to export
 
-## Requirements
+## Requirements - TEST
 * SonarQube 7.x
 
 ## Installation
