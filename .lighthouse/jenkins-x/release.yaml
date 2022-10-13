@@ -1,0 +1,68 @@
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  creationTimestamp: null
+  name: release
+spec:
+  pipelineSpec:
+    tasks:
+    - name: from-build-pack
+      resources: {}
+      taskSpec:
+        metadata: {}
+        stepTemplate:
+          env:
+          image: uses:jaraxasoftware/jaraxa-pipeline-catalog/tasks/maven-java11/release.yaml@versionStream
+          name: ""
+          resources:
+            # override limits for all containers here
+            limits: {}
+          volumeMounts:
+          - mountPath: /root/.m2/
+            name: maven-settings
+          - mountPath: /root/.gnupg
+            name: release-gpg
+          workingDir: /workspace/source
+        steps:
+        - image: uses:jaraxasoftware/jaraxa-pipeline-catalog/tasks/git-clone/git-clone.yaml@versionStream
+          name: ""
+          resources: {}
+        - name: next-version
+          resources: {}
+        - name: jx-variables
+          resources:
+            # override requests for the pod here
+            requests:
+              cpu: 400m
+              memory: 512Mi
+        - name: build-mvn-deploy
+          resources: {}        
+        - name: promote-changelog
+          resources: {}
+        - image: uses:jaraxasoftware/jaraxa-pipeline-catalog/tasks/erlang-rebar/release.yaml@versionStream
+          name: upload-artifacts-release
+          resources: {}
+          script: |
+            #!/usr/bin/env bash
+            source .jx/variables.sh
+            set +x            
+            
+            go get github.com/github-release/github-release
+            github-release upload \
+              --user $REPO_OWNER \
+              --repo $REPO_NAME \
+              --tag v${VERSION} \
+              --name "sonar-erlang-plugin.jar" \
+              --file $ARTIFACT                  
+        volumes:
+        - name: maven-settings
+          secret:
+            secretName: jenkins-maven-settings
+        - name: release-gpg
+          secret:
+            optional: true
+            secretName: jenkins-release-gpg
+  podTemplate: {}
+  serviceAccountName: tekton-bot
+  timeout: 12h0m0s
+status: {}
